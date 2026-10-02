@@ -1,68 +1,193 @@
-# WebForge AI — Multi-Agent Website Generator
+# Webntra — AI-Powered Website Builder
 
-WebForge AI turns a natural-language website request into a runnable static website through a seven-agent SDLC pipeline:
+> **Generate complete, production-ready websites from a single prompt using a 7-agent SDLC pipeline.**
 
-1. Requirement Agent — Gemini
-2. Design Agent — Gemini
-3. Code Agent — OpenRouter free model
-4. Testing Agent — Groq
-5. Debug Agent — OpenRouter free model
-6. Security Agent — Groq
-7. Deployment Agent — Gemini
+Webntra is a full-stack AI website builder with a premium Studio UI. Describe what you want, and seven specialized AI agents plan, design, code, test, debug, secure, and package your website — all in real time.
 
-## Never-stuck architecture
-Each provider call has a timeout. Missing keys, quota/rate-limit errors, invalid responses and provider outages fall back to a deterministic local agent implementation. The pipeline therefore completes instead of leaving an agent permanently running. Set `DEMO_MODE=true` to force local mode.
+---
 
-## API keys
-No key is bundled. Add keys later to `backend/.env`:
+## ✨ Features
 
+### 🏠 Landing Page & Auth
+- Beautiful animated landing page with hero, blueprints, how-it-works, and pipeline workflow sections
+- **Blueprint templates** — pick from Enterprise SaaS, FinTech, Portfolio, Telehealth, and more to pre-fill prompts
+- Email/password authentication with sign-up & login modals
+- Persistent user session via `localStorage`
+
+### 🤖 7-Agent SDLC Pipeline
+Each generation request runs through a sequential chain of specialized agents:
+
+| # | Agent | Role | Provider |
+|---|---|---|---|
+| 1 | **Requirements** | Parses and structures user intent | Gemini |
+| 2 | **Design** | Creates layout & color system | Gemini |
+| 3 | **Code** | Generates HTML, CSS, JS | OpenRouter |
+| 4 | **Testing** | Validates functionality & coverage | Groq |
+| 5 | **Debug** | Fixes errors and edge cases | OpenRouter |
+| 6 | **Security** | Checks for vulnerabilities | Groq |
+| 7 | **Deployment** | Packages and finalizes output | Gemini |
+
+> **Never-stuck architecture** — every agent has a timeout + local fallback. The pipeline always completes even if a provider is down or keys are missing. Set `DEMO_MODE=true` to force local mode.
+
+### 🎨 Studio (AI Builder)
+- **Draggable/resizable divider** between the AI chat panel and the live preview canvas
+- Multi-turn AI chat for iterative refinements (e.g. *"add a pricing section"*, *"use purple accents"*)
+- Live iframe preview with **Desktop / Tablet / Mobile** viewport switching
+- Iframe sandboxing with navigation guard — prevents the preview from hijacking the host app
+- **Code & Files** tab with syntax-highlighted source viewer and live editing
+- **7-Agent Inspector** tab showing per-agent status, metadata, test coverage, and security report
+- Download as ZIP — exports all files plus a standalone README
+- Open in new tab — launches the generated site in a clean browser window
+- Auto-save to `localStorage` on every generation
+- Brand Kit injection — user-defined brand name, color, and tone are automatically appended to generation prompts
+
+### 📁 Projects Dashboard
+- Grid of saved projects with last-edited timestamps
+- One-click to re-open any project back into the Studio
+- Delete projects with confirmation
+- "New Project" shortcut
+
+### ⚙️ Settings
+**User settings:**
+- Profile — update display name and avatar initial
+- Notifications — email digest, product updates, weekly reports
+- Privacy — data sharing and analytics toggles
+
+**Creator/Developer settings:**
+- Brand Kit — set default brand name, primary color, and brand tone
+- SEO — meta description and target keywords auto-injected into generated sites
+- API Keys — configure Gemini, OpenRouter, and Groq keys (stored in backend `.env`)
+- Billing — plan overview (UI placeholder)
+
+### 👤 Profile Menu
+Accessible from the avatar icon in the Studio header:
+- My Projects → back to dashboard
+- Workspace Settings → opens Settings view
+- Sign Out
+
+---
+
+## 🚀 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS |
+| **Backend** | Node.js, Express, TypeScript |
+| **AI Providers** | Google Gemini, OpenRouter, Groq |
+| **State** | React `useState` / `useRef`, localStorage persistence |
+| **Icons** | Lucide React |
+| **Bundling** | JSZip (client-side ZIP export) |
+
+---
+
+## 🛠️ Setup & Run
+
+### 1. Clone the repo
+```bash
+git clone https://github.com/radhikapatil17/MultiAgent-WebDev.git
+cd MultiAgent-WebDev
+```
+
+### 2. Configure environment variables
+```bash
+cp backend/.env.example backend/.env
+```
+
+Edit `backend/.env`:
 ```env
-GEMINI_API_KEY=
+GEMINI_API_KEY=your_key_here
 GEMINI_MODEL=gemini-2.5-flash-lite
-OPENROUTER_API_KEY=
-OPENROUTER_MODEL=openrouter/free
-GROQ_API_KEY=
+
+OPENROUTER_API_KEY=your_key_here
+OPENROUTER_MODEL=openrouter/auto
+
+GROQ_API_KEY=your_key_here
 GROQ_MODEL=llama-3.3-70b-versatile
-DEMO_MODE=auto
+
+DEMO_MODE=auto          # auto | true | false
 AGENT_TIMEOUT_MS=15000
 PORT=5000
 APP_URL=http://localhost:5173
 ```
 
-Keep provider keys only in the backend. Never commit `.env`.
+> ⚠️ Never commit `.env`. All keys stay server-side only.
 
-## Run
-
-Backend:
+### 3. Start the backend
 ```bash
 cd backend
 npm install
 npm run dev
 ```
 
-Frontend in another terminal:
+### 4. Start the frontend (new terminal)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+Open **http://localhost:5173** 🎉
 
-## Live preview
-The generated project is a static HTML/CSS/JS bundle. WebForge assembles CSS and JavaScript into the iframe preview so the preview does not display source code as text. Desktop/tablet/mobile preview modes are included.
+---
 
-## Iterative SDLC changes
-After generation, use the change bar to request changes such as:
+## 🔄 Iterative Refinement
 
-- Add a pricing section
-- Add a contact form
-- Change the hero copy
-- Use purple accents
-- Add a project section
-- Make the layout more compact
+After your site is generated, use the AI chat to refine it:
 
-The backend runs the change through Requirement → Design → Code → Testing → Debug → Security → Deployment. If providers are unavailable, local fallback logic applies the change and returns a complete project.
+```
+"Add a pricing section with 3 tiers"
+"Change the hero headline to 'Ship faster with AI'"
+"Make the navbar sticky"
+"Use a dark color scheme"
+"Add a contact form with validation"
+"Make the layout more compact on mobile"
+```
 
-## Export
-The **Download ZIP** button exports all generated files plus a README so the result can be opened or deployed independently.
+Each message re-runs the full SDLC pipeline against the existing code.
+
+---
+
+## 📦 Export & Deploy
+
+- **Download ZIP** — exports `index.html`, `style.css`, `script.js`, and a README. Drop into any static host (Vercel, Netlify, GitHub Pages).
+- **Open in New Tab** — previews the live site outside the Studio frame.
+
+---
+
+## 📂 Project Structure
+
+```
+webforge-ai/
+├── backend/
+│   ├── src/
+│   │   └── server.ts          # Express API + 7-agent pipeline
+│   ├── .env.example
+│   └── package.json
+└── frontend/
+    ├── public/
+    ├── src/
+    │   ├── components/
+    │   │   ├── LandingPage.tsx        # Hero, blueprints, CTA
+    │   │   ├── Studio.tsx             # Main AI builder + resizable layout
+    │   │   ├── ProjectsDashboard.tsx  # Saved projects grid
+    │   │   ├── SettingsView.tsx       # User & developer settings
+    │   │   ├── AuthModal.tsx          # Sign in / Sign up
+    │   │   ├── AgentInspector.tsx     # 7-agent details panel
+    │   │   ├── DeployModal.tsx        # Deploy options
+    │   │   ├── MediaLibraryModal.tsx  # Stock media picker
+    │   │   ├── ProfileModal.tsx       # Profile editor
+    │   │   └── Navbar.tsx
+    │   ├── services/
+    │   │   ├── api.ts                 # Backend communication + agent runners
+    │   │   └── projectStorage.ts      # localStorage CRUD
+    │   ├── types.ts
+    │   ├── App.tsx
+    │   └── index.css
+    └── package.json
+```
+
+---
+
+## 📄 License
+
+MIT — feel free to use, fork, and build on top of Webntra.
