@@ -1,4 +1,5 @@
 import { Agent, AgentStatus, FileItem, GenerationResponse, User } from "../types";
+import { ensureFullStackProjectFiles } from "../utils/fullstackFiles";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -20,21 +21,46 @@ export async function fetchCurrentUser(): Promise<User | null> {
   }
 }
 
-export async function loginWithEmail(email: string, name?: string): Promise<User | null> {
+export async function loginUser(email: string, password: string): Promise<{ success: boolean; user?: User; error?: string }> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, name }),
+      body: JSON.stringify({ email: email.trim(), password }),
       credentials: "include"
     });
-    if (!res.ok) return null;
     const data = await res.json();
-    return data?.user || null;
-  } catch (err) {
-    console.warn("Email login failed:", err);
-    return null;
+    if (!res.ok || !data.success) {
+      return { success: false, error: data?.error || "Login failed. Please check your credentials." };
+    }
+    return { success: true, user: data.user };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Unable to reach server. Please check your network." };
   }
+}
+
+export async function registerUser(email: string, password: string, name: string): Promise<{ success: boolean; user?: User; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim(), password, name: name.trim() }),
+      credentials: "include"
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data?.error || "Registration failed. Please try again." };
+    }
+    return { success: true, user: data.user };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Unable to reach server. Please check your network." };
+  }
+}
+
+export async function loginWithEmail(email: string, name?: string): Promise<User | null> {
+  // Legacy fallback wrapper
+  const result = await loginUser(email, "");
+  return result.user || null;
 }
 
 export async function logoutUser(): Promise<boolean> {
@@ -46,6 +72,42 @@ export async function logoutUser(): Promise<boolean> {
     return res.ok;
   } catch {
     return false;
+  }
+}
+
+export async function requestPasswordReset(email: string): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim() }),
+      credentials: "include"
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data?.error || "Failed to send reset code. Please try again." };
+    }
+    return { success: true, message: data.message || `Verification code sent to ${email}` };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Network error. Please try again." };
+  }
+}
+
+export async function resetPassword(email: string, code: string, newPassword: string): Promise<{ success: boolean; user?: User; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim(), code: code.trim(), newPassword }),
+      credentials: "include"
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data?.error || "Invalid code or failed to reset password." };
+    }
+    return { success: true, user: data.user };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Network error. Please try again." };
   }
 }
 
@@ -77,7 +139,7 @@ export async function generateWebsite(
 ): Promise<GenerationResponse> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
     const res = await fetch(`${API_BASE_URL}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -93,6 +155,12 @@ export async function generateWebsite(
         files: data.files || [],
         agents: data.agents || DEFAULT_AGENTS,
         logs: data.logs || [],
+        requirements: data.requirements,
+        design: data.design,
+        tests: data.tests,
+        debug: data.debug,
+        security: data.security,
+        deployment: data.deployment,
         mode: data.mode || "ai"
       };
     }
@@ -110,7 +178,7 @@ export async function modifyWebsite(
 ): Promise<GenerationResponse> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
     const res = await fetch(`${API_BASE_URL}/api/modify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -126,6 +194,12 @@ export async function modifyWebsite(
         files: data.files || existingFiles,
         agents: data.agents || DEFAULT_AGENTS,
         logs: data.logs || [],
+        requirements: data.requirements,
+        design: data.design,
+        tests: data.tests,
+        debug: data.debug,
+        security: data.security,
+        deployment: data.deployment,
         mode: data.mode || "hybrid"
       };
     }
@@ -160,28 +234,26 @@ async function runFallbackPipeline(
     currentAgents[i].detail = "Completed";
   }
 
-  return {
-    projectName: "WEBNTRA Project",
-    files: [
-      {
-        path: "index.html",
-        content: `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Generated by WEBNTRA</title><link rel="stylesheet" href="styles.css"></head><body><main class="hero"><h1>Your Website</h1><p>${prompt}</p><button class="cta-btn">Get Started</button></main><script src="script.js"></script></body></html>`,
-        language: "html"
-      },
-      {
-        path: "styles.css",
-        content: `* { margin: 0; padding: 0; box-sizing: border-box; }
+  const rawFiles: FileItem[] = [
+    {
+      path: "index.html",
+      content: `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Generated by WEBNTRA</title><link rel="stylesheet" href="styles.css"></head><body><main class="hero"><h1>Your Website</h1><p>${prompt}</p><button class="cta-btn">Get Started</button></main><script src="script.js"></script></body></html>`,
+      language: "html"
+    },
+    {
+      path: "styles.css",
+      content: `* { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: #FFFFFF; color: #0F172A; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; min-height: 100vh; }
 .hero { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; text-align: center; }
 h1 { font-size: 3rem; font-weight: 800; color: #0F172A; margin-bottom: 1rem; }
 p { font-size: 1.1rem; color: #64748B; max-width: 600px; line-height: 1.7; margin-bottom: 2rem; }
 .cta-btn { background: #E11D48; color: white; border: none; padding: 14px 32px; border-radius: 12px; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 14px rgba(225,29,72,0.25); }
 .cta-btn:hover { background: #BE123C; transform: translateY(-1px); }`,
-        language: "css"
-      },
-      {
-        path: "script.js",
-        content: `document.addEventListener('DOMContentLoaded', () => {
+      language: "css"
+    },
+    {
+      path: "script.js",
+      content: `document.addEventListener('DOMContentLoaded', () => {
   const btn = document.querySelector('.cta-btn');
   if (btn) {
     btn.addEventListener('click', () => {
@@ -190,9 +262,13 @@ p { font-size: 1.1rem; color: #64748B; max-width: 600px; line-height: 1.7; margi
     });
   }
 });`,
-        language: "javascript"
-      }
-    ],
+      language: "javascript"
+    }
+  ];
+
+  return {
+    projectName: "WEBNTRA Project",
+    files: ensureFullStackProjectFiles("WEBNTRA Project", prompt, rawFiles),
     agents: currentAgents,
     logs,
     mode: "demo"

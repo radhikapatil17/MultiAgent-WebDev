@@ -4,15 +4,18 @@ import {
   Loader2, Check, Image, Video, Paperclip, Camera, X, Code2, Terminal, 
   Eye, FileText, Globe, RefreshCw, ExternalLink, ShieldCheck, Layers, 
   Copy, Edit3, CheckCircle2, ChevronDown, ChevronRight, Play, Maximize2,
-  FolderTree, Wrench, Share2, FolderGit2, Settings, LogOut, User as UserIcon
+  FolderTree, Wrench, Share2, FolderGit2, Settings, LogOut, User as UserIcon,
+  Users, Server, Package, Plus, Trash2, Database
 } from "lucide-react";
 import JSZip from "jszip";
 import { Agent, FileItem, Project, ChatMessage, User } from "../types";
 import { generateWebsite, modifyWebsite, DEFAULT_AGENTS } from "../services/api";
 import { saveProject, getProjectById } from "../services/projectStorage";
+import { ensureFullStackProjectFiles } from "../utils/fullstackFiles";
 import { DeployModal } from "./DeployModal";
 import { AgentInspector } from "./AgentInspector";
 import { MediaLibraryModal } from "./MediaLibraryModal";
+import { CollaboratorsModal } from "./CollaboratorsModal";
 import logoImg from "../assets/logo.jpg";
 
 interface StudioProps {
@@ -51,7 +54,13 @@ export const Studio: React.FC<StudioProps> = ({
   });
   
   const [refinementPrompt, setRefinementPrompt] = useState("");
-  const [files, setFiles] = useState<FileItem[]>(() => initialProject?.files || []);
+  const [files, setFiles] = useState<FileItem[]>(() => {
+    const raw = initialProject?.files || [];
+    if (raw.length > 0) {
+      return ensureFullStackProjectFiles(initialProject?.name || "Modern Web App", initialProject?.prompt || "", raw);
+    }
+    return raw;
+  });
   const [selectedPath, setSelectedPath] = useState("index.html");
   const [agents, setAgents] = useState<Agent[]>(() => initialProject?.agents || DEFAULT_AGENTS);
   const [logs, setLogs] = useState<string[]>(() => initialProject?.logs || ["WEBNTRA Studio Engine initialized."]);
@@ -65,30 +74,95 @@ export const Studio: React.FC<StudioProps> = ({
   const [showConsole, setShowConsole] = useState(false);
   const [deployModalOpen, setDeployModalOpen] = useState(false);
   const [mediaModalOpen, setMediaModalOpen] = useState(false);
+  const [collaboratorsOpen, setCollaboratorsOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
+  const [isCreatingFile, setIsCreatingFile] = useState(false);
+  const [newFileName, setNewFileName] = useState("");
+
+  const handleCreateFile = () => {
+    const rawName = newFileName.trim();
+    if (!rawName) return;
+    if (files.some(f => f.path.toLowerCase() === rawName.toLowerCase())) {
+      alert("A file with this name already exists.");
+      return;
+    }
+    let lang = "plaintext";
+    if (rawName.endsWith(".html")) lang = "html";
+    else if (rawName.endsWith(".css")) lang = "css";
+    else if (rawName.endsWith(".js") || rawName.endsWith(".ts")) lang = "javascript";
+    else if (rawName.endsWith(".json")) lang = "json";
+    else if (rawName.endsWith(".sql")) lang = "sql";
+    else if (rawName.endsWith(".md")) lang = "markdown";
+
+    const defaultContent = rawName.endsWith(".html")
+      ? `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>${rawName}</title>\n  <link rel="stylesheet" href="styles.css">\n</head>\n<body>\n  <nav><a href="index.html">← Back to Home</a></nav>\n  <main style="padding: 40px; font-family: sans-serif;">\n    <h1>${rawName}</h1>\n    <p>Custom page created in WEBNTRA Studio.</p>\n  </main>\n</body>\n</html>`
+      : rawName.endsWith(".css")
+      ? `/* ${rawName} */\n`
+      : rawName.endsWith(".js")
+      ? `// ${rawName}\nconsole.log('${rawName} initialized');\n`
+      : rawName.endsWith(".sql")
+      ? `-- ${rawName}\nCREATE TABLE IF NOT EXISTS records (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  title TEXT NOT NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP\n);\n`
+      : `// ${rawName}\n`;
+
+    const newFile: FileItem = { path: rawName, content: defaultContent, language: lang };
+    const updated = [...files, newFile];
+    setFiles(updated);
+    setSelectedPath(rawName);
+    setNewFileName("");
+    setIsCreatingFile(false);
+  };
+
+  const handleDeleteFile = (pathToDelete: string) => {
+    if (pathToDelete.toLowerCase() === "index.html") {
+      alert("The primary index.html file cannot be deleted.");
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete ${pathToDelete}?`)) return;
+    const updated = files.filter(f => f.path !== pathToDelete);
+    setFiles(updated);
+    if (selectedPath === pathToDelete) {
+      setSelectedPath(updated[0]?.path || "index.html");
+    }
+  };
+
+  // Guarantee all full-stack files (server.js, package.json, README.md) are present
+  useEffect(() => {
+    if (files.length > 0 && (!files.some(f => f.path.toLowerCase() === "server.js") || !files.some(f => f.path.toLowerCase() === "package.json"))) {
+      setFiles(prev => ensureFullStackProjectFiles(projectName, prompt, prev));
+    }
+  }, [files.length, projectName, prompt]);
+
+  // Active Preview Page for multi-page applications
+  const [activePreviewPage, setActivePreviewPage] = useState<string>("index.html");
 
   // Metadata for SDLC Inspection
   const [sdlcMetadata, setSdlcMetadata] = useState<{
     requirements?: any;
     design?: any;
     tests?: any;
+    debug?: any;
     security?: any;
+    deployment?: any;
   }>(() => ({
     requirements: initialProject?.requirements,
     design: initialProject?.design,
     tests: initialProject?.tests,
-    security: initialProject?.security
+    debug: initialProject?.debug,
+    security: initialProject?.security,
+    deployment: initialProject?.deployment
   }));
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
   // ── Resizable Divider State ──
   const [leftPanelPct, setLeftPanelPct] = useState(41.67); // ~5/12 cols default
@@ -106,12 +180,15 @@ export const Studio: React.FC<StudioProps> = ({
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target as Node)) {
         setProfileDropdownOpen(false);
       }
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setMoreMenuOpen(false);
+      }
     };
-    if (isAttachOpen || profileDropdownOpen) {
+    if (isAttachOpen || profileDropdownOpen || moreMenuOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isAttachOpen, profileDropdownOpen]);
+  }, [isAttachOpen, profileDropdownOpen, moreMenuOpen]);
 
   // ── Divider drag handlers ──
   const handleDividerMouseDown = (e: React.MouseEvent) => {
@@ -168,23 +245,63 @@ export const Studio: React.FC<StudioProps> = ({
     setCodeDirty(false);
   }, [selectedFile]);
 
+  // Handle inter-page iframe navigation
+  useEffect(() => {
+    const handleMsg = (ev: MessageEvent) => {
+      if (ev.data?.type === "NAVIGATE_PAGE" && ev.data?.page) {
+        const target = String(ev.data.page).replace(/^\.\//, "").split("?")[0].split("#")[0];
+        const match = files.find(f => f.path.toLowerCase() === target.toLowerCase() || f.path.toLowerCase().endsWith("/" + target.toLowerCase()));
+        if (match) {
+          setActivePreviewPage(match.path);
+        }
+      }
+    };
+    window.addEventListener("message", handleMsg);
+    return () => window.removeEventListener("message", handleMsg);
+  }, [files]);
+
   // Compiled Preview HTML
   const previewHtml = useMemo(() => {
     if (!files.length) return "";
-    const index = files.find(f => f.path.toLowerCase() === "index.html");
-    if (!index) return "";
-    let html = index.content;
+    const activeDoc = files.find(f => f.path.toLowerCase() === activePreviewPage.toLowerCase())
+      || files.find(f => f.path.toLowerCase() === "index.html")
+      || files.find(f => f.path.endsWith(".html"));
+    if (!activeDoc) return "";
+    let html = activeDoc.content;
     const css = files.filter(f => f.path.endsWith(".css")).map(f => f.content).join("\n");
-    const js = files.filter(f => f.path.endsWith(".js")).map(f => f.content).join("\n");
+    // Exclude Node.js server scripts from being injected into the browser preview DOM
+    const js = files.filter(f => f.path.endsWith(".js") && !f.path.toLowerCase().includes("server")).map(f => f.content).join("\n");
 
-    // Guard against preview iframe navigating to host root or breaking sandbox
+    // Guard against preview iframe navigating away, handle inter-page links, and simulate backend REST API responses
     const guardScript = `
       <script>
         (function() {
+          // Intercept fetch calls to /api/* so interactive buttons work smoothly in preview
+          var origFetch = window.fetch;
+          window.fetch = function(url, options) {
+            if (typeof url === 'string' && url.indexOf('/api/') !== -1) {
+              var dummyData = { success: true, status: 'healthy', message: 'Simulated API Success', timestamp: new Date().toISOString() };
+              if (url.indexOf('health') !== -1) dummyData = { status: 'healthy', uptime: 1042, version: '2.0.0' };
+              if (url.indexOf('analytics') !== -1) dummyData = { revenue: [120, 160, 210, 270, 350, 480], users: [60, 95, 140, 220, 310, 520] };
+              if (url.indexOf('appointment') !== -1 || url.indexOf('booking') !== -1) dummyData = { success: true, id: 'bk_' + Math.random().toString(36).substring(2, 8), message: 'Booking confirmed!' };
+              return Promise.resolve(new Response(JSON.stringify(dummyData), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+              }));
+            }
+            return origFetch.apply(this, arguments);
+          };
+
           document.addEventListener('click', function(e) {
             var a = e.target.closest('a');
             if (a) {
               var href = a.getAttribute('href') || '';
+              // Intercept internal page transitions like href="about.html"
+              if (href.indexOf('.html') !== -1 && !href.startsWith('http') && !href.startsWith('//')) {
+                e.preventDefault();
+                window.parent.postMessage({ type: 'NAVIGATE_PAGE', page: href }, '*');
+                return;
+              }
               if (href.startsWith('#')) {
                 e.preventDefault();
                 var el = document.querySelector(href);
@@ -214,7 +331,7 @@ export const Studio: React.FC<StudioProps> = ({
     if (js) html = html.replace("</body>", `<script>\n${js}\n</script>${guardScript}</body>`);
     else html = html.replace("</body>", `${guardScript}</body>`);
     return html;
-  }, [files, previewKey]);
+  }, [files, activePreviewPage, previewKey]);
 
   // Auto-save project state to storage
   useEffect(() => {
@@ -233,7 +350,9 @@ export const Studio: React.FC<StudioProps> = ({
         requirements: sdlcMetadata.requirements,
         design: sdlcMetadata.design,
         tests: sdlcMetadata.tests,
-        security: sdlcMetadata.security
+        debug: sdlcMetadata.debug,
+        security: sdlcMetadata.security,
+        deployment: sdlcMetadata.deployment
       });
     }
   }, [files, projectName, agents, logs, sdlcMetadata]);
@@ -295,10 +414,11 @@ export const Studio: React.FC<StudioProps> = ({
             setLogs(prev => [...prev, log]);
           });
 
-      setFiles(res.files);
+      const fullFiles = ensureFullStackProjectFiles(res.projectName || projectName, targetPrompt, res.files);
+      setFiles(fullFiles);
       setAgents(res.agents);
       setLogs(res.logs);
-      setSelectedPath(res.files[0]?.path || "index.html");
+      setSelectedPath(fullFiles[0]?.path || "index.html");
       if (!isModification && res.projectName) {
         setProjectName(res.projectName);
       }
@@ -306,7 +426,9 @@ export const Studio: React.FC<StudioProps> = ({
         requirements: res.requirements,
         design: res.design,
         tests: res.tests,
-        security: res.security
+        debug: res.debug,
+        security: res.security,
+        deployment: res.deployment
       });
 
       // Add assistant response
@@ -350,13 +472,14 @@ export const Studio: React.FC<StudioProps> = ({
 
   const downloadZip = async () => {
     if (!files.length) return;
+    const allFiles = ensureFullStackProjectFiles(projectName, prompt, files);
     const zip = new JSZip();
-    files.forEach(f => zip.file(f.path, f.content));
+    allFiles.forEach(f => zip.file(f.path, f.content));
     const blob = await zip.generateAsync({ type: "blob" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.zip`;
+    a.download = `${projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-fullstack.zip`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -444,126 +567,125 @@ export const Studio: React.FC<StudioProps> = ({
           </div>
         </div>
 
-        {/* Center: Device Viewport Switcher */}
-        {activeTab === "preview" && (
-          <div className="hidden md:flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 shadow-xs">
-            {[
-              { key: "desktop", label: "Desktop", icon: Monitor, dims: "100%" },
-              { key: "tablet", label: "Tablet", icon: Tablet, dims: "768px" },
-              { key: "mobile", label: "Mobile", icon: Smartphone, dims: "375px" },
-            ].map(d => (
-              <button
-                key={d.key}
-                onClick={() => setDevice(d.key as typeof device)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  device === d.key ? "bg-white text-[#E11D48] shadow-xs" : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                <d.icon size={13} />
-                <span>{d.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Right: Studio Action Buttons & User Profile */}
+        {/* ── RIGHT: Download ZIP (primary CTA) + ⋯ More + Profile ── */}
         <div className="flex items-center gap-2">
-          {/* Refresh Preview */}
-          <button
-            onClick={() => setPreviewKey(k => k + 1)}
-            title="Reload Preview Frame"
-            className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition border border-slate-200"
-          >
-            <RefreshCw size={14} />
-          </button>
 
-          {/* Open in Standalone Tab */}
-          <button
-            onClick={handleOpenInNewTab}
-            disabled={!files.length}
-            title="Open Live Website in New Window"
-            className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition border border-slate-200 disabled:opacity-40"
-          >
-            <ExternalLink size={14} />
-          </button>
+          {/* ⋯ More menu */}
+          <div ref={moreMenuRef} className="relative">
+            <button
+              onClick={() => setMoreMenuOpen(o => !o)}
+              className={`p-2 rounded-xl border text-xs font-bold transition flex items-center gap-1 ${
+                moreMenuOpen
+                  ? "bg-slate-100 border-slate-300 text-slate-900"
+                  : "border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+              }`}
+              title="More actions"
+            >
+              <span className="text-base leading-none tracking-widest">···</span>
+            </button>
 
-          {/* Export & Deploy Modal */}
-          <button
-            onClick={() => setDeployModalOpen(true)}
-            disabled={!files.length}
-            className="px-3.5 py-2 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs disabled:opacity-40"
-          >
-            <Globe size={13} />
-            <span className="hidden sm:inline">Publish / Export</span>
-          </button>
+            {moreMenuOpen && (
+              <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-50">
+                {/* Collaborate */}
+                <button
+                  onClick={() => { setCollaboratorsOpen(true); setMoreMenuOpen(false); }}
+                  className="w-full px-4 py-2.5 flex items-center gap-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                >
+                  <Users size={14} className="text-violet-500" />
+                  Collaborate
+                </button>
 
-          {/* Download ZIP */}
+                {/* Refresh Preview */}
+                <button
+                  onClick={() => { setPreviewKey(k => k + 1); setMoreMenuOpen(false); }}
+                  className="w-full px-4 py-2.5 flex items-center gap-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                >
+                  <RefreshCw size={14} className="text-slate-400" />
+                  Refresh Preview
+                </button>
+
+                {/* Open in new tab */}
+                <button
+                  onClick={() => { handleOpenInNewTab(); setMoreMenuOpen(false); }}
+                  disabled={!files.length}
+                  className="w-full px-4 py-2.5 flex items-center gap-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-40"
+                >
+                  <ExternalLink size={14} className="text-slate-400" />
+                  Open in New Tab
+                </button>
+
+                <div className="my-1 border-t border-slate-100" />
+
+                {/* Publish / Export */}
+                <button
+                  onClick={() => { setDeployModalOpen(true); setMoreMenuOpen(false); }}
+                  disabled={!files.length}
+                  className="w-full px-4 py-2.5 flex items-center gap-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-40"
+                >
+                  <Globe size={14} className="text-slate-400" />
+                  Publish / Export
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Download ZIP — primary CTA */}
           <button
             onClick={downloadZip}
             disabled={!files.length}
             className="px-4 py-2 bg-[#E11D48] hover:bg-[#BE123C] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-[#E11D48]/20 disabled:opacity-40 hover:scale-[1.02] active:scale-[0.98]"
           >
-            <Download size={14} />
-            <span className="hidden sm:inline">Download ZIP</span>
+            <Download size={13} />
+            <span className="hidden sm:inline">Download</span>
           </button>
 
-          {/* Profile Dropdown Menu */}
+          {/* Profile Dropdown */}
           {user && (
             <>
-              <div className="w-px h-5 bg-slate-200 mx-1 hidden sm:block" />
+              <div className="w-px h-5 bg-slate-200 mx-0.5" />
               <div ref={profileDropdownRef} className="relative">
                 <button
                   onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                  className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-100 border border-transparent hover:border-slate-200 transition"
-                  title="Profile & Workspace Settings"
+                  className="flex items-center gap-1.5 p-1 rounded-xl hover:bg-slate-100 border border-transparent hover:border-slate-200 transition"
+                  title="Profile & Settings"
                 >
                   {user.avatar ? (
-                    <img 
-                      src={user.avatar} 
-                      alt={user.name} 
-                      className="w-7 h-7 rounded-full object-cover border border-slate-200"
-                    />
+                    <img src={user.avatar} alt={user.name} className="w-7 h-7 rounded-full object-cover border border-slate-200" />
                   ) : (
                     <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#E11D48] to-rose-400 text-white flex items-center justify-center font-bold text-xs">
                       {user.name.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <ChevronDown size={13} className={`text-slate-400 transition-transform ${profileDropdownOpen ? "rotate-180" : ""}`} />
+                  <ChevronDown size={12} className={`text-slate-400 transition-transform ${profileDropdownOpen ? "rotate-180" : ""}`} />
                 </button>
 
                 {profileDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50">
                     <div className="px-3.5 py-2 border-b border-slate-100">
                       <div className="text-xs font-bold text-slate-900 truncate">{user.name}</div>
                       <div className="text-[11px] text-slate-400 truncate">{user.email}</div>
                     </div>
-
                     <div className="py-1">
                       <button
                         onClick={() => { setProfileDropdownOpen(false); onBackToDashboard(); }}
                         className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                       >
-                        <FolderGit2 size={14} />
-                        <span>My Projects</span>
+                        <FolderGit2 size={14} /> My Projects
                       </button>
-
                       <button
                         onClick={() => { setProfileDropdownOpen(false); if (onOpenSettings) onOpenSettings(); }}
                         className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                       >
-                        <Settings size={14} />
-                        <span>Workspace Settings</span>
+                        <Settings size={14} /> Workspace Settings
                       </button>
                     </div>
-
                     {onLogout && (
                       <div className="pt-1 border-t border-slate-100">
                         <button
                           onClick={() => { setProfileDropdownOpen(false); onLogout(); }}
                           className="w-full px-3.5 py-2 text-left text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2"
                         >
-                          <LogOut size={14} />
-                          <span>Sign Out</span>
+                          <LogOut size={14} /> Sign Out
                         </button>
                       </div>
                     )}
@@ -833,14 +955,38 @@ export const Studio: React.FC<StudioProps> = ({
               ))}
             </div>
 
-            {/* Media Library Quick Opener */}
-            <button
-              onClick={() => setMediaModalOpen(true)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-600 hover:text-[#E11D48] hover:bg-rose-50 rounded-lg transition"
-            >
-              <Image size={13} />
-              <span>Media Library</span>
-            </button>
+            {/* Right side: viewport icons (preview only) + media */}
+            <div className="flex items-center gap-2">
+              {activeTab === "preview" && (
+                <div className="hidden sm:flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+                  {[
+                    { key: "desktop", icon: Monitor },
+                    { key: "tablet", icon: Tablet },
+                    { key: "mobile", icon: Smartphone },
+                  ].map(d => (
+                    <button
+                      key={d.key}
+                      onClick={() => setDevice(d.key as typeof device)}
+                      title={d.key.charAt(0).toUpperCase() + d.key.slice(1)}
+                      className={`p-1.5 rounded-lg transition ${
+                        device === d.key
+                          ? "bg-white text-[#E11D48] shadow-xs"
+                          : "text-slate-400 hover:text-slate-700"
+                      }`}
+                    >
+                      <d.icon size={13} />
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={() => setMediaModalOpen(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-500 hover:text-[#E11D48] hover:bg-rose-50 rounded-lg transition"
+              >
+                <Image size={13} />
+                <span className="hidden md:inline">Media</span>
+              </button>
+            </div>
           </div>
 
           {/* Canvas Viewport Body */}
@@ -858,17 +1004,49 @@ export const Studio: React.FC<StudioProps> = ({
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
                   </div>
 
-                  <div className="bg-white border border-slate-200 px-4 py-0.5 rounded-md font-mono text-[10px] text-slate-600 flex items-center gap-1.5 max-w-xs truncate">
-                    <Globe size={11} className="text-emerald-500" />
-                    <span>https://preview.webntra.app/{projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}</span>
+                  <div className="flex items-center gap-2 max-w-md">
+                    <div className="bg-white border border-slate-200 px-3 py-0.5 rounded-md font-mono text-[10px] text-slate-600 flex items-center gap-1.5 truncate">
+                      <Globe size={11} className="text-emerald-500 shrink-0" />
+                      <span className="truncate">https://preview.webntra.app/{projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}/{activePreviewPage}</span>
+                    </div>
+
+                    {/* Multi-Page Selector */}
+                    {files.filter(f => f.path.endsWith(".html")).length > 1 && (
+                      <div className="flex items-center gap-1 bg-white border border-slate-200 px-2 py-0.5 rounded-md text-[10px] shrink-0">
+                        <span className="text-slate-400 font-bold">Page:</span>
+                        <select
+                          value={activePreviewPage}
+                          onChange={(e) => setActivePreviewPage(e.target.value)}
+                          className="bg-transparent font-mono font-bold text-slate-800 text-[10px] focus:outline-none cursor-pointer"
+                        >
+                          {files.filter(f => f.path.endsWith(".html")).map(p => (
+                            <option key={p.path} value={p.path}>{p.path}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
-                  <button
-                    onClick={() => setShowConsole(!showConsole)}
-                    className={`px-2 py-0.5 rounded font-mono text-[10px] transition ${showConsole ? "bg-slate-900 text-white" : "hover:bg-slate-200 text-slate-600"}`}
-                  >
-                    Console ({logs.length})
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => {
+                        const blob = new Blob([previewHtml], { type: "text/html" });
+                        const url = URL.createObjectURL(blob);
+                        window.open(url, "_blank");
+                      }}
+                      title="Open website in standalone new browser tab"
+                      className="px-2 py-0.5 rounded font-mono text-[10px] text-slate-600 hover:bg-slate-200 transition flex items-center gap-1"
+                    >
+                      <ExternalLink size={11} />
+                      <span className="hidden sm:inline">New Tab</span>
+                    </button>
+                    <button
+                      onClick={() => setShowConsole(!showConsole)}
+                      className={`px-2 py-0.5 rounded font-mono text-[10px] transition ${showConsole ? "bg-slate-900 text-white" : "hover:bg-slate-200 text-slate-600"}`}
+                    >
+                      Console ({logs.length})
+                    </button>
+                  </div>
                 </div>
 
                 {/* Preview iframe container */}
@@ -932,26 +1110,280 @@ export const Studio: React.FC<StudioProps> = ({
               <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden grid grid-cols-12">
                 
                 {/* File Tree Explorer (3 cols) */}
-                <div className="col-span-3 border-r border-slate-200 p-3 bg-slate-50 overflow-y-auto">
-                  <div className="flex items-center justify-between mb-2 px-1">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">Project Files</span>
-                    <span className="text-[10px] font-mono text-slate-400">{files.length} files</span>
+                <div className="col-span-3 border-r border-slate-200 p-3 bg-slate-50 overflow-y-auto flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3 px-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Project Files</span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setIsCreatingFile(!isCreatingFile)}
+                          title="Create new file"
+                          className="p-1 text-slate-500 hover:text-[#E11D48] hover:bg-rose-50 rounded-md transition"
+                        >
+                          <Plus size={13} />
+                        </button>
+                        <span className="text-[10px] font-bold font-mono px-2 py-0.5 bg-rose-50 text-[#E11D48] rounded-full border border-rose-200">
+                          {files.length} files
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Inline Create File Box */}
+                    {isCreatingFile && (
+                      <div className="mb-3 p-2 bg-white rounded-xl border border-rose-200 shadow-xs">
+                        <input
+                          type="text"
+                          autoFocus
+                          placeholder="e.g. about.html, schema.sql"
+                          value={newFileName}
+                          onChange={(e) => setNewFileName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleCreateFile();
+                            if (e.key === "Escape") setIsCreatingFile(false);
+                          }}
+                          className="w-full text-xs font-mono px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#E11D48]"
+                        />
+                        <div className="flex items-center justify-end gap-1.5 mt-2">
+                          <button
+                            onClick={() => setIsCreatingFile(false)}
+                            className="px-2 py-0.5 text-[10px] text-slate-400 hover:text-slate-600 rounded"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleCreateFile}
+                            className="px-2.5 py-0.5 text-[10px] font-bold bg-[#E11D48] text-white rounded-md hover:bg-[#BE123C]"
+                          >
+                            Add File
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Dynamic Unbounded Multi-Language File Tree */}
+                    <div className="space-y-3">
+                      {/* 1. Pages & UI */}
+                      {files.some(f => f.path.match(/\.(html|htm|jsx|tsx|vue|svelte)$/i)) && (
+                        <div>
+                          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 px-2 mb-1 flex items-center gap-1">
+                            <Globe size={10} className="text-orange-500" />
+                            <span>Pages & UI</span>
+                          </div>
+                          <div className="space-y-0.5">
+                            {files.filter(f => f.path.match(/\.(html|htm|jsx|tsx|vue|svelte)$/i)).map(f => (
+                              <div
+                                key={f.path}
+                                onClick={() => setSelectedPath(f.path)}
+                                className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-mono transition flex items-center justify-between group cursor-pointer ${
+                                  selectedPath === f.path
+                                    ? "bg-white text-[#E11D48] font-bold shadow-2xs border border-slate-200"
+                                    : "text-slate-600 hover:bg-white"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <Globe size={13} className="text-orange-500 shrink-0" />
+                                  <span className="truncate">{f.path}</span>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {f.path.toLowerCase() !== "index.html" && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteFile(f.path); }}
+                                      title="Delete file"
+                                      className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-red-500 rounded transition"
+                                    >
+                                      <Trash2 size={11} />
+                                    </button>
+                                  )}
+                                  <span className="text-[9px] uppercase font-bold text-slate-400">{f.language}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 2. Stylesheets */}
+                      {files.some(f => f.path.match(/\.(css|scss|sass|less)$/i)) && (
+                        <div>
+                          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 px-2 mb-1 flex items-center gap-1">
+                            <Layers size={10} className="text-blue-500" />
+                            <span>Design & Styles</span>
+                          </div>
+                          <div className="space-y-0.5">
+                            {files.filter(f => f.path.match(/\.(css|scss|sass|less)$/i)).map(f => (
+                              <div
+                                key={f.path}
+                                onClick={() => setSelectedPath(f.path)}
+                                className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-mono transition flex items-center justify-between group cursor-pointer ${
+                                  selectedPath === f.path
+                                    ? "bg-white text-[#E11D48] font-bold shadow-2xs border border-slate-200"
+                                    : "text-slate-600 hover:bg-white"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <Layers size={13} className="text-blue-500 shrink-0" />
+                                  <span className="truncate">{f.path}</span>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteFile(f.path); }}
+                                    title="Delete file"
+                                    className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-red-500 rounded transition"
+                                  >
+                                    <Trash2 size={11} />
+                                  </button>
+                                  <span className="text-[9px] uppercase font-bold text-slate-400">{f.language}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 3. Client Logic & Scripts */}
+                      {files.some(f => f.path.match(/\.(js|ts)$/i) && !f.path.toLowerCase().includes("server") && !f.path.startsWith("routes/") && !f.path.startsWith("api/")) && (
+                        <div>
+                          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 px-2 mb-1 flex items-center gap-1">
+                            <Code2 size={10} className="text-amber-500" />
+                            <span>Client Scripts</span>
+                          </div>
+                          <div className="space-y-0.5">
+                            {files.filter(f => f.path.match(/\.(js|ts)$/i) && !f.path.toLowerCase().includes("server") && !f.path.startsWith("routes/") && !f.path.startsWith("api/")).map(f => (
+                              <div
+                                key={f.path}
+                                onClick={() => setSelectedPath(f.path)}
+                                className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-mono transition flex items-center justify-between group cursor-pointer ${
+                                  selectedPath === f.path
+                                    ? "bg-white text-[#E11D48] font-bold shadow-2xs border border-slate-200"
+                                    : "text-slate-600 hover:bg-white"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <Code2 size={13} className="text-amber-500 shrink-0" />
+                                  <span className="truncate">{f.path}</span>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteFile(f.path); }}
+                                    title="Delete file"
+                                    className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-red-500 rounded transition"
+                                  >
+                                    <Trash2 size={11} />
+                                  </button>
+                                  <span className="text-[9px] uppercase font-bold text-slate-400">{f.language}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 4. Backend & REST APIs */}
+                      {files.some(f => f.path.toLowerCase().includes("server") || f.path.match(/\.(py|php|rb|go)$/i) || f.path.startsWith("routes/") || f.path.startsWith("api/")) && (
+                        <div>
+                          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 px-2 mb-1 flex items-center gap-1">
+                            <Server size={10} className="text-emerald-500" />
+                            <span>Backend & APIs</span>
+                          </div>
+                          <div className="space-y-0.5">
+                            {files.filter(f => f.path.toLowerCase().includes("server") || f.path.match(/\.(py|php|rb|go)$/i) || f.path.startsWith("routes/") || f.path.startsWith("api/")).map(f => (
+                              <div
+                                key={f.path}
+                                onClick={() => setSelectedPath(f.path)}
+                                className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-mono transition flex items-center justify-between group cursor-pointer ${
+                                  selectedPath === f.path
+                                    ? "bg-white text-[#E11D48] font-bold shadow-2xs border border-slate-200"
+                                    : "text-slate-600 hover:bg-white"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <Server size={13} className="text-emerald-500 shrink-0" />
+                                  <span className="truncate">{f.path}</span>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <span className="text-[9px] uppercase font-bold text-slate-400">{f.language}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 5. Database & Schemas */}
+                      {files.some(f => f.path.match(/\.(sql|prisma)$/i) || f.path.includes("schema")) && (
+                        <div>
+                          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 px-2 mb-1 flex items-center gap-1">
+                            <Database size={10} className="text-purple-500" />
+                            <span>Database & Schemas</span>
+                          </div>
+                          <div className="space-y-0.5">
+                            {files.filter(f => f.path.match(/\.(sql|prisma)$/i) || f.path.includes("schema")).map(f => (
+                              <div
+                                key={f.path}
+                                onClick={() => setSelectedPath(f.path)}
+                                className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-mono transition flex items-center justify-between group cursor-pointer ${
+                                  selectedPath === f.path
+                                    ? "bg-white text-[#E11D48] font-bold shadow-2xs border border-slate-200"
+                                    : "text-slate-600 hover:bg-white"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <Database size={13} className="text-purple-500 shrink-0" />
+                                  <span className="truncate">{f.path}</span>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <span className="text-[9px] uppercase font-bold text-slate-400">{f.language}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 6. Config & Documentation */}
+                      {files.some(f => ["package.json", "readme.md", ".env.example", ".env", "dockerfile"].includes(f.path.toLowerCase()) || f.path.match(/\.(json|md|yml|yaml|env)$/i)) && (
+                        <div>
+                          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 px-2 mb-1 flex items-center gap-1">
+                            <FolderGit2 size={10} className="text-indigo-500" />
+                            <span>Config & Documentation</span>
+                          </div>
+                          <div className="space-y-0.5">
+                            {files.filter(f => ["package.json", "readme.md", ".env.example", ".env", "dockerfile"].includes(f.path.toLowerCase()) || f.path.match(/\.(json|md|yml|yaml|env)$/i)).map(f => (
+                              <div
+                                key={f.path}
+                                onClick={() => setSelectedPath(f.path)}
+                                className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-mono transition flex items-center justify-between group cursor-pointer ${
+                                  selectedPath === f.path
+                                    ? "bg-white text-[#E11D48] font-bold shadow-2xs border border-slate-200"
+                                    : "text-slate-600 hover:bg-white"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  {f.path.toLowerCase() === "package.json" && <FolderGit2 size={13} className="text-rose-500 shrink-0" />}
+                                  {f.path.toLowerCase() === "readme.md" && <FileText size={13} className="text-indigo-500 shrink-0" />}
+                                  {!["package.json", "readme.md"].includes(f.path.toLowerCase()) && <FileText size={13} className="text-slate-400 shrink-0" />}
+                                  <span className="truncate">{f.path}</span>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <span className="text-[9px] uppercase font-bold text-slate-400">{f.language}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    {files.map(f => (
-                      <button
-                        key={f.path}
-                        onClick={() => setSelectedPath(f.path)}
-                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-mono transition flex items-center justify-between ${
-                          selectedPath === f.path
-                            ? "bg-white text-[#E11D48] font-bold shadow-xs border border-slate-200"
-                            : "text-slate-600 hover:bg-white"
-                        }`}
-                      >
-                        <span className="truncate">{f.path}</span>
-                        <span className="text-[9px] uppercase font-bold text-slate-400">{f.language}</span>
-                      </button>
-                    ))}
+
+                  {/* Direct Download ZIP CTA at bottom of file tree */}
+                  <div className="pt-3 mt-3 border-t border-slate-200">
+                    <button
+                      onClick={downloadZip}
+                      className="w-full py-2 px-3 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-700 hover:text-[#E11D48] rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-2xs group"
+                    >
+                      <Download size={13} className="text-[#E11D48] group-hover:translate-y-0.5 transition-transform" />
+                      <span>Download Complete ZIP</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1008,10 +1440,19 @@ export const Studio: React.FC<StudioProps> = ({
                 <AgentInspector
                   agents={agents}
                   logs={logs}
+                  files={files}
+                  projectName={projectName}
                   requirements={sdlcMetadata.requirements}
                   design={sdlcMetadata.design}
                   tests={sdlcMetadata.tests}
+                  debug={sdlcMetadata.debug}
                   security={sdlcMetadata.security}
+                  deployment={sdlcMetadata.deployment}
+                  onSelectFile={(path) => {
+                    setSelectedPath(path);
+                    setActiveTab("code");
+                  }}
+                  onDownloadZip={downloadZip}
                 />
               </div>
             )}
@@ -1038,6 +1479,17 @@ export const Studio: React.FC<StudioProps> = ({
           setRefinementPrompt(prev => `${prev} Use image ${url} in the hero banner.`);
         }}
       />
+
+      {/* Collaborators Modal */}
+      {collaboratorsOpen && (
+        <CollaboratorsModal
+          projectId={projectId}
+          projectName={projectName}
+          ownerName={user?.name || "You"}
+          ownerEmail={user?.email || ""}
+          onClose={() => setCollaboratorsOpen(false)}
+        />
+      )}
 
     </div>
   );

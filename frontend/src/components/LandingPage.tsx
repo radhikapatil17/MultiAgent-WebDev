@@ -5,7 +5,7 @@ import {
   Terminal, Layers, CheckCircle2, ChevronRight, ChevronDown,
   Image, Video, Paperclip, Camera, X, Star, ArrowUpRight,
   Globe, Palette, TestTube2, Bug, Lock, Rocket, Users, BarChart3,
-  Clock, Shield, FileText, Play, Plus, Download
+  Clock, Shield, FileText, Play, Plus, Download, Quote
 } from "lucide-react";
 import { User } from "../types";
 import { HowItWorksSection } from "./HowItWorksSection";
@@ -64,35 +64,65 @@ const BLUEPRINTS = [
     category: "Enterprise SaaS",
     description: "Multi-region cloud management console with live resource metrics, node status, and pricing calculator.",
     tags: ["Cloud", "Dashboard", "Real-time"],
-    prompt: "Create an enterprise cloud management landing page with live metrics preview, server pricing calculator, and client trust logos."
+    prompt: "Create an enterprise cloud management landing page with live metrics preview, server pricing calculator, and client trust logos.",
+    icon: Globe,
+    color: "#3B82F6",
+    gradient: "from-blue-500/10 via-sky-500/5 to-transparent"
   },
   {
     title: "FinTech Payment Platform",
     category: "Financial Tech",
     description: "High-conversion financial services platform featuring transaction flow previews, security compliance badges, and integration docs.",
     tags: ["Fintech", "Security", "SaaS"],
-    prompt: "Build an ultra-modern FinTech landing page with interactive currency conversion, feature highlight tabs, and pricing tiers."
+    prompt: "Build an ultra-modern FinTech landing page with interactive currency conversion, feature highlight tabs, and pricing tiers.",
+    icon: ShieldCheck,
+    color: "#10B981",
+    gradient: "from-emerald-500/10 via-teal-500/5 to-transparent"
   },
   {
     title: "Creative Studio Portfolio",
     category: "Agency & Studio",
     description: "Minimalist engineering consultancy portfolio showcasing interactive case studies, performance metrics, and contact inquiry.",
     tags: ["Portfolio", "Minimal", "Creative"],
-    prompt: "Generate a sleek, minimalist digital engineering studio portfolio showcasing case studies, services grid, interactive testimonials, and booking form."
+    prompt: "Generate a sleek, minimalist digital engineering studio portfolio showcasing case studies, services grid, interactive testimonials, and booking form.",
+    icon: Palette,
+    color: "#8B5CF6",
+    gradient: "from-purple-500/10 via-violet-500/5 to-transparent"
   },
   {
     title: "Telehealth Network",
     category: "Healthcare",
     description: "Accessible telemedicine platform with provider scheduling, doctor specialty directory, and patient portal preview.",
     tags: ["Healthcare", "Booking", "Accessible"],
-    prompt: "Design a clean, accessible telehealth network website with appointment booking modal, provider specialty directory, and patient reviews."
+    prompt: "Design a clean, accessible telehealth network website with appointment booking modal, provider specialty directory, and patient reviews.",
+    icon: Sparkles,
+    color: "#E11D48",
+    gradient: "from-rose-500/10 via-pink-500/5 to-transparent"
   }
 ];
 
 const TESTIMONIALS = [
-  { name: "Sarah Chen", role: "CTO, Apex Technologies", text: "WEBNTRA cut our launch time from weeks to minutes. The quality of generated websites is production-ready.", rating: 5 },
-  { name: "Marcus Rivera", role: "Product Lead, Nova Labs", text: "The 7-agent pipeline ensures every aspect is covered — from design tokens to security audits. Incredibly thorough.", rating: 5 },
-  { name: "Priya Sharma", role: "Design Lead, Crafted Digital", text: "I was skeptical about AI-generated websites, but WEBNTRA consistently delivers clean, high-performance websites.", rating: 5 },
+  { 
+    name: "Sarah Chen", 
+    role: "CTO, Apex Technologies", 
+    text: "WEBNTRA cut our launch time from weeks to minutes. The quality of generated websites is production-ready.", 
+    rating: 5,
+    tag: "⚡ 10x Faster Launch" 
+  },
+  { 
+    name: "Marcus Rivera", 
+    role: "Product Lead, Nova Labs", 
+    text: "The 7-agent pipeline ensures every aspect is covered — from design tokens to security audits. Incredibly thorough.", 
+    rating: 5,
+    tag: "🛡️ 7-Agent Engine" 
+  },
+  { 
+    name: "Priya Sharma", 
+    role: "Design Lead, Crafted Digital", 
+    text: "I was skeptical about AI-generated websites, but WEBNTRA consistently delivers clean, high-performance websites.", 
+    rating: 5,
+    tag: "🎨 Design Excellence" 
+  },
 ];
 
 export const LandingPage: React.FC<LandingPageProps> = ({
@@ -222,7 +252,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   }, [isAttachOpen]);
 
   const handleBuildClick = (customPrompt?: string) => {
-    const text = (customPrompt || prompt).trim() || "Create an enterprise cloud management landing page with live metrics preview, server pricing calculator, and client trust logos.";
+    const text = (customPrompt || prompt).trim() || typewriterText || "Create an enterprise cloud management landing page with live metrics preview, server pricing calculator, and client trust logos.";
     onStartWithPrompt(text);
   };
 
@@ -238,7 +268,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (el) {
+      const y = el.getBoundingClientRect().top + window.pageYOffset - 70;
+      window.scrollTo({ top: y, behavior: "smooth" });
+    }
   };
 
   return (
@@ -366,6 +399,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleBuildClick();
+                  }
+                }}
                 rows={3}
                 className="relative z-10 w-full resize-none bg-transparent text-slate-900 text-sm sm:text-base md:text-lg font-normal focus:outline-none leading-relaxed min-h-[90px] sm:min-h-[110px]"
               />
@@ -648,91 +687,185 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </motion.div>
 
         <motion.div variants={staggerContainer} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {BLUEPRINTS.map((bp, idx) => (
-            <motion.div 
-              key={idx}
-              variants={fadeUp}
-              className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col justify-between hover:-translate-y-1 group"
-            >
-              <div>
-                {/* Card Header */}
-                <div className="p-5 border-b border-slate-100 bg-gradient-to-b from-slate-50/80 to-white">
-                  <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                    {bp.category}
-                  </span>
-                  <h4 className="font-bold text-base text-slate-900 mt-3 group-hover:text-[#E11D48] transition-colors">{bp.title}</h4>
-                </div>
+          {BLUEPRINTS.map((bp, idx) => {
+            const Icon = bp.icon;
+            return (
+              <motion.div 
+                key={idx}
+                variants={fadeUp}
+                whileHover={{ y: -7, transition: { duration: 0.24, ease: "easeOut" } }}
+                className="bg-white border border-slate-200 hover:border-rose-200/80 rounded-2xl overflow-hidden shadow-xs hover:shadow-xl hover:shadow-rose-500/10 transition-all duration-300 flex flex-col justify-between group relative"
+              >
+                {/* Top Glowing Color Stripe */}
+                <div 
+                  className="h-1 w-full opacity-60 group-hover:opacity-100 group-hover:h-1.5 transition-all duration-300"
+                  style={{ backgroundColor: bp.color }}
+                />
 
-                <div className="p-5">
-                  <p className="text-xs text-slate-500 leading-relaxed mb-4">
-                    {bp.description}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {bp.tags.map(t => (
-                      <span key={t} className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
-                        {t}
+                <div>
+                  {/* Card Header with Icon + Category */}
+                  <div className={`p-5 border-b border-slate-100 bg-gradient-to-b ${bp.gradient} transition-colors duration-300`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-white text-slate-700 border border-slate-200 group-hover:border-rose-200 group-hover:text-[#E11D48] transition-colors shadow-2xs">
+                        {bp.category}
                       </span>
-                    ))}
+                      <div 
+                        className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-600 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 shadow-2xs"
+                        style={{ color: bp.color }}
+                      >
+                        <Icon size={16} />
+                      </div>
+                    </div>
+                    <h4 className="font-extrabold text-base text-slate-900 mt-3 group-hover:text-[#E11D48] transition-colors">
+                      {bp.title}
+                    </h4>
+                  </div>
+
+                  <div className="p-5">
+                    <p className="text-xs text-slate-500 leading-relaxed mb-4">
+                      {bp.description}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {bp.tags.map(t => (
+                        <span 
+                          key={t} 
+                          className="text-[10px] font-semibold text-slate-600 bg-slate-100 group-hover:bg-rose-50/60 group-hover:text-slate-800 px-2.5 py-1 rounded-md transition-colors"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="p-5 pt-0">
-                <button
-                  onClick={() => handleBuildClick(bp.prompt)}
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-100 hover:bg-[#E11D48] text-slate-700 hover:text-white text-xs font-bold transition-all duration-200"
-                >
-                  <Sparkles size={13} />
-                  <span>Build This</span>
-                  <ArrowRight size={13} />
-                </button>
-              </div>
-            </motion.div>
-          ))}
+                <div className="p-5 pt-0">
+                  <button
+                    onClick={() => handleBuildClick(bp.prompt)}
+                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-100 group-hover:bg-[#E11D48] text-slate-700 group-hover:text-white text-xs font-bold transition-all duration-200 group-hover:shadow-md group-hover:shadow-[#E11D48]/25"
+                  >
+                    <Sparkles size={13} className="group-hover:rotate-12 transition-transform duration-300" />
+                    <span>Build This</span>
+                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform duration-200" />
+                  </button>
+                </div>
+              </motion.div>
+            );
+          })}
         </motion.div>
       </AnimatedSection>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* 6. TESTIMONIALS                                                    */}
+      {/* 6. TESTIMONIALS (WITH CONTINUOUS FLOATING ANIMATIONS)             */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      <AnimatedSection className="py-20 sm:py-28 bg-slate-50 border-y border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
-          <motion.div variants={fadeUp} className="text-center max-w-2xl mx-auto mb-14">
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#E11D48] bg-rose-50 px-4 py-1.5 rounded-full border border-rose-100 mb-4">
-              <Star size={12} />
-              Testimonials
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mt-3">
+      <AnimatedSection className="py-24 sm:py-32 bg-slate-50 border-y border-slate-200 relative overflow-hidden">
+        {/* Floating Background Ambient Glows */}
+        <motion.div 
+          animate={{ y: [0, -25, 0], x: [0, 15, 0], scale: [1, 1.1, 1] }}
+          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -top-24 -left-20 w-80 h-80 rounded-full bg-rose-200/40 blur-3xl pointer-events-none"
+        />
+        <motion.div 
+          animate={{ y: [0, 25, 0], x: [0, -18, 0], scale: [1, 1.12, 1] }}
+          transition={{ duration: 8.5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+          className="absolute -bottom-24 -right-20 w-96 h-96 rounded-full bg-rose-100/50 blur-3xl pointer-events-none"
+        />
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 relative z-10">
+          <motion.div variants={fadeUp} className="text-center max-w-2xl mx-auto mb-16">
+            {/* Floating Top Trust Pill */}
+            <motion.div
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 3.8, repeat: Infinity, ease: "easeInOut" }}
+              className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 bg-white/90 backdrop-blur px-4 py-1.5 rounded-full border border-rose-100 shadow-sm mb-4"
+            >
+              <div className="flex -space-x-1.5">
+                <span className="w-5 h-5 rounded-full bg-[#E11D48] text-white text-[9px] flex items-center justify-center font-bold shadow-xs">S</span>
+                <span className="w-5 h-5 rounded-full bg-slate-800 text-white text-[9px] flex items-center justify-center font-bold shadow-xs">M</span>
+                <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[9px] flex items-center justify-center font-bold shadow-xs">P</span>
+              </div>
+              <span className="font-bold text-slate-900">4.9 / 5</span>
+              <span className="text-slate-400">• Loved by 1,200+ founders & creators</span>
+            </motion.div>
+
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mt-1">
               Loved by Creators & Teams
             </h2>
+            <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
+              Real websites shipped in minutes with WEBNTRA's autonomous multi-agent engine.
+            </p>
           </motion.div>
 
+          {/* Testimonial Cards Grid with Staggered Floating Levitation */}
           <motion.div variants={staggerContainer} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map((t, i) => (
-              <motion.div
-                key={i}
-                variants={fadeUp}
-                className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg transition-all duration-300"
-              >
-                <div className="flex items-center gap-0.5 mb-3">
-                  {Array.from({ length: t.rating }).map((_, j) => (
-                    <Star key={j} size={14} className="text-amber-400 fill-amber-400" />
-                  ))}
-                </div>
-                <p className="text-sm text-slate-600 leading-relaxed mb-4 italic">
-                  "{t.text}"
-                </p>
-                <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#E11D48] to-rose-400 text-white flex items-center justify-center font-bold text-xs">
-                    {t.name.charAt(0)}
-                  </div>
+            {TESTIMONIALS.map((t, i) => {
+              // Custom floating rhythms for each column to create natural organic levitation
+              const floatConfig = [
+                { yRange: [0, -10, 0], duration: 4.8, delay: 0 },
+                { yRange: [-5, 8, -5], duration: 5.6, delay: 0.6 },
+                { yRange: [0, -12, 0], duration: 4.4, delay: 1.2 }
+              ][i % 3];
+
+              return (
+                <motion.div
+                  key={i}
+                  variants={fadeUp}
+                  animate={{ y: floatConfig.yRange }}
+                  transition={{
+                    duration: floatConfig.duration,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: floatConfig.delay
+                  }}
+                  whileHover={{ 
+                    y: -16, 
+                    scale: 1.025, 
+                    boxShadow: "0 20px 35px -10px rgba(225, 29, 72, 0.16)",
+                    transition: { duration: 0.25, ease: "easeOut" }
+                  }}
+                  className="group relative bg-white/95 backdrop-blur border border-slate-200 hover:border-rose-300 rounded-2xl p-6 transition-colors duration-300 flex flex-col justify-between shadow-md shadow-slate-200/50 cursor-default"
+                >
+                  {/* Subtle Floating Watermark Quote Icon */}
+                  <Quote 
+                    className="absolute right-5 top-5 text-rose-100 group-hover:text-rose-200 transition-colors pointer-events-none" 
+                    size={36} 
+                  />
+
                   <div>
-                    <div className="text-xs font-bold text-slate-900">{t.name}</div>
-                    <div className="text-[11px] text-slate-500">{t.role}</div>
+                    {/* Rating & Badge Header */}
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-0.5">
+                        {Array.from({ length: t.rating }).map((_, j) => (
+                          <Star key={j} size={14} className="text-amber-400 fill-amber-400" />
+                        ))}
+                      </div>
+                      <span className="text-[11px] font-bold text-[#E11D48] bg-rose-50 border border-rose-100 px-2.5 py-0.5 rounded-full">
+                        {t.tag}
+                      </span>
+                    </div>
+
+                    {/* Testimonial Quote */}
+                    <p className="text-sm text-slate-700 leading-relaxed mb-5 italic relative z-10 font-normal">
+                      "{t.text}"
+                    </p>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+
+                  {/* Author Meta */}
+                  <div className="flex items-center gap-3 pt-3.5 border-t border-slate-100 relative z-10">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#E11D48] to-rose-400 text-white flex items-center justify-center font-bold text-xs shadow-sm shadow-[#E11D48]/30 group-hover:scale-105 transition-transform">
+                      {t.name.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 group-hover:text-[#E11D48] transition-colors">
+                        {t.name}
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-medium">
+                        {t.role}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
           </motion.div>
         </div>
       </AnimatedSection>
@@ -907,7 +1040,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   if (!user) {
                     onOpenAuth("Create your free account to get started.");
                   } else {
-                    scrollToSection("how-it-works");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    setTimeout(() => {
+                      const input = document.querySelector("textarea") as HTMLTextAreaElement;
+                      if (input) input.focus();
+                    }, 350);
                   }
                 }}
                 className="px-8 py-3 rounded-xl bg-[#E11D48] hover:bg-[#BE123C] text-white font-bold text-sm transition-all shadow-lg shadow-[#E11D48]/20 hover:shadow-xl hover:shadow-[#E11D48]/30 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2"
@@ -917,7 +1054,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <ArrowRight size={16} />
               </button>
               <button
-                onClick={() => scrollToSection("pipeline")}
+                onClick={() => scrollToSection("how-it-works")}
                 className="px-8 py-3 rounded-xl border-2 border-slate-200 hover:border-slate-300 text-slate-700 font-bold text-sm transition-all hover:bg-slate-50"
               >
                 See How It Works
@@ -939,14 +1076,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <img src={logoImg} alt="WEBNTRA" className="w-full h-full object-cover rounded-lg" />
               </div>
               <span className="font-extrabold text-slate-900 tracking-tight text-base">WEBNTRA</span>
-            </div>
-
-            {/* Links */}
-            <div className="flex items-center gap-6 text-xs font-medium text-slate-500">
-              <button onClick={() => scrollToSection("pipeline")} className="hover:text-[#E11D48] transition">Pipeline</button>
-              <button onClick={() => scrollToSection("blueprints")} className="hover:text-[#E11D48] transition">Templates</button>
-              <button onClick={() => scrollToSection("pricing")} className="hover:text-[#E11D48] transition">Pricing</button>
-              <button onClick={() => scrollToSection("faq")} className="hover:text-[#E11D48] transition">FAQ</button>
             </div>
 
             {/* Copyright */}

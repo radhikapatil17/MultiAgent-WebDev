@@ -21,6 +21,10 @@ build/
 .env.*.local
 **/.env
 
+# Local User Data Store
+backend/data/*.json
+!backend/data/.gitkeep
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

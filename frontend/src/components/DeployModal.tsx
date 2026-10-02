@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Download, Copy, Check, ExternalLink, Globe, Sparkles, Server, ShieldCheck, FileCode } from "lucide-react";
 import { FileItem } from "../types";
+import { ensureFullStackProjectFiles } from "../utils/fullstackFiles";
 import JSZip from "jszip";
 
 interface DeployModalProps {
@@ -25,13 +26,14 @@ export const DeployModal: React.FC<DeployModalProps> = ({
 
   const downloadZip = async () => {
     if (!files.length) return;
+    const allFiles = ensureFullStackProjectFiles(projectName, "", files);
     const zip = new JSZip();
-    files.forEach(f => zip.file(f.path, f.content));
+    allFiles.forEach(f => zip.file(f.path, f.content));
     const blob = await zip.generateAsync({ type: "blob" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-production.zip`;
+    a.download = `${projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-fullstack.zip`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -41,7 +43,7 @@ export const DeployModal: React.FC<DeployModalProps> = ({
     if (!index) return "";
     let html = index.content;
     const css = files.filter(f => f.path.endsWith(".css")).map(f => f.content).join("\n");
-    const js = files.filter(f => f.path.endsWith(".js")).map(f => f.content).join("\n");
+    const js = files.filter(f => f.path.endsWith(".js") && !f.path.toLowerCase().includes("server")).map(f => f.content).join("\n");
     if (css) html = html.replace("</head>", `<style>\n${css}\n</style></head>`);
     if (js) html = html.replace("</body>", `<script>\n${js}\n</script></body>`);
     return html;

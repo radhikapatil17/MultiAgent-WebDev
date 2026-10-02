@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useAnimationControls } from "framer-motion";
 import { 
   Globe, Palette, Code2, TestTube2, Bug, Lock, Rocket, 
-  Sparkles, CheckCircle2, ChevronRight, Play, Pause, 
-  Activity, ArrowRight, Layers, ShieldCheck, Cpu
+  Sparkles, CheckCircle2, ChevronRight, 
+  ArrowRight, Layers, ShieldCheck, Cpu
 } from "lucide-react";
 import logoImg from "../assets/logo.jpg";
 
@@ -224,7 +224,7 @@ export const PipelineWorkflowSection: React.FC = () => {
         <div className="flex items-center">
           <div 
             className={`flex items-center gap-6 sm:gap-8 will-change-transform ${
-              isPaused ? "animate-marquee-paused" : "animate-marquee-smooth"
+              isPaused || hoveredAgent !== null ? "animate-marquee-paused" : "animate-marquee-smooth"
             }`}
             style={{
               width: "max-content",
@@ -351,26 +351,7 @@ export const PipelineWorkflowSection: React.FC = () => {
           </div>
         </div>
 
-        {/* Play/Pause & Hover Hint Controls */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 flex items-center justify-between text-xs text-slate-500">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsPaused(!isPaused)}
-              className="px-3 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-300 font-medium flex items-center gap-1.5 transition"
-              title={isPaused ? "Resume Pipeline Animation" : "Pause Pipeline Animation"}
-            >
-              {isPaused ? <Play size={12} className="text-emerald-400" /> : <Pause size={12} className="text-[#E11D48]" />}
-              <span>{isPaused ? "Resume Stream" : "Pause Stream"}</span>
-            </button>
-            <span className="text-slate-600 hidden sm:inline">·</span>
-            <span className="text-slate-500 hidden sm:inline">Hover over any card to inspect details</span>
-          </div>
 
-          <div className="flex items-center gap-2 font-mono text-[11px] text-slate-400">
-            <Activity size={13} className="text-[#E11D48] animate-pulse" />
-            <span>7 / 7 Continuous Loop</span>
-          </div>
-        </div>
 
       </div>
 

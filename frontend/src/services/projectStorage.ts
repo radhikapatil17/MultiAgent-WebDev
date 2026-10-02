@@ -1,5 +1,6 @@
-import { Project, FileItem, Agent } from "../types";
+import { Project, FileItem, Agent, Collaborator, CollaboratorRole } from "../types";
 import { DEFAULT_AGENTS } from "./api";
+import { ensureFullStackProjectFiles } from "../utils/fullstackFiles";
 
 const STORAGE_KEY = "webntra_projects_v2";
 const SETTINGS_KEY = "webntra_settings_v2";
@@ -13,7 +14,18 @@ export function getProjects(): Project[] {
       return initial;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (Array.isArray(parsed)) {
+      return parsed.map((p: Project) => {
+        if (p.files && p.files.length > 0) {
+          return {
+            ...p,
+            files: ensureFullStackProjectFiles(p.name, p.prompt || "", p.files)
+          };
+        }
+        return p;
+      });
+    }
+    return [];
   } catch (e) {
     console.warn("Failed to read projects from storage:", e);
     return getSampleProjects();
@@ -22,7 +34,11 @@ export function getProjects(): Project[] {
 
 export function getProjectById(id: string): Project | null {
   const projects = getProjects();
-  return projects.find(p => p.id === id) || null;
+  const p = projects.find(item => item.id === id) || null;
+  if (p && p.files && p.files.length > 0) {
+    p.files = ensureFullStackProjectFiles(p.name, p.prompt || "", p.files);
+  }
+  return p;
 }
 
 export function saveProject(project: Project): void {
@@ -112,6 +128,80 @@ function inferCategory(prompt: string): string {
   if (p.includes("restaurant")) return "Food & Hospitality";
   if (p.includes("ecommerce") || p.includes("shop")) return "E-Commerce";
   return "General Web";
+}
+
+// ── Collaborator helpers ────────────────────────────────────────────────────
+
+const AVATAR_COLORS = [
+  "#E11D48", "#7C3AED", "#0EA5E9", "#10B981",
+  "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4",
+];
+
+function randomAvatarColor(): string {
+  return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+}
+
+export function getCollaborators(projectId: string): Collaborator[] {
+  const project = getProjectById(projectId);
+  return project?.collaborators ?? [];
+}
+
+export function addCollaborator(
+  projectId: string,
+  email: string,
+  role: CollaboratorRole
+): Collaborator | null {
+  const project = getProjectById(projectId);
+  if (!project) return null;
+
+  // Don't allow duplicates
+  const existing = (project.collaborators ?? []).find(
+    c => c.email.toLowerCase() === email.toLowerCase()
+  );
+  if (existing) return null;
+
+  const collaborator: Collaborator = {
+    id: "collab_" + Math.random().toString(36).substring(2, 9),
+    email,
+    name: email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+    role,
+    status: "pending",
+    invitedAt: new Date().toISOString(),
+    avatarColor: randomAvatarColor(),
+  };
+
+  const updated: Project = {
+    ...project,
+    collaborators: [...(project.collaborators ?? []), collaborator],
+  };
+  saveProject(updated);
+  return collaborator;
+}
+
+export function updateCollaboratorRole(
+  projectId: string,
+  collaboratorId: string,
+  role: CollaboratorRole
+): void {
+  const project = getProjectById(projectId);
+  if (!project) return;
+  const updated: Project = {
+    ...project,
+    collaborators: (project.collaborators ?? []).map(c =>
+      c.id === collaboratorId ? { ...c, role } : c
+    ),
+  };
+  saveProject(updated);
+}
+
+export function removeCollaborator(projectId: string, collaboratorId: string): void {
+  const project = getProjectById(projectId);
+  if (!project) return;
+  const updated: Project = {
+    ...project,
+    collaborators: (project.collaborators ?? []).filter(c => c.id !== collaboratorId),
+  };
+  saveProject(updated);
 }
 
 function getSampleProjects(): Project[] {

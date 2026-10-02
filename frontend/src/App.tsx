@@ -28,6 +28,11 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const authSuccess = params.get("auth") === "success";
     const authError = params.get("auth_error");
+    const resetCode = params.get("reset_code");
+
+    if (resetCode) {
+      setIsAuthOpen(true);
+    }
 
     if (authSuccess || authError) {
       // Clean query string from URL

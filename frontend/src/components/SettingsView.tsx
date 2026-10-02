@@ -79,9 +79,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [optOutTraining, setOptOutTraining] = useState(() => localStorage.getItem("webntra_pref_optout") !== "false");
 
   // 8. Developer / Engine Settings
-  const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem("webntra_gemini_key") || "");
+  const [cerebrasKey, setCerebrasKey] = useState(() => localStorage.getItem("webntra_cerebras_key") || "");
   const [openrouterKey, setOpenrouterKey] = useState(() => localStorage.getItem("webntra_openrouter_key") || "");
+  const [mistralKey, setMistralKey] = useState(() => localStorage.getItem("webntra_mistral_key") || "");
   const [groqKey, setGroqKey] = useState(() => localStorage.getItem("webntra_groq_key") || "");
+  const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem("webntra_gemini_key") || "");
   const [exportFormat, setExportFormat] = useState<"zip" | "single_html">("zip");
   const [testingBackend, setTestingBackend] = useState(false);
   const [backendStatus, setBackendStatus] = useState<boolean | null>(null);
